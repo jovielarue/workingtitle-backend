@@ -1,10 +1,21 @@
 services:
+  backend:
+    build: .
+    container_name: workingtitle-backend
+    ports:
+      - 5000:5000
+    depends_on:
+      - mongodb
+    # .env needs to include MONGODB_CONNECTION_STRING
+    env_file: ".env"
   mongodb:
     image: mongodb/mongodb-community-server:latest
     container_name: mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
+    networks:
+      - workingtitle
     volumes:
       - mongodb:/data/db
     # .env needs to include MONGO_INITDB_ROOT_USERNAME and MONGO_INITDB_ROOT_PASSWORD
@@ -12,4 +23,7 @@ services:
 
 volumes:
   mongodb:
-    external: true
+
+networks:
+  workingtitle:
+    driver: bridge
