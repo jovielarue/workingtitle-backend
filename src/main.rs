@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{Router, routing::get};
 use mongodb::{Client, Collection};
 use tokio::net::TcpListener;
@@ -22,14 +24,21 @@ async fn main() {
     axum::serve(listener, app(db_client)).await.unwrap();
 }
 
+struct AppState {
+    users: Collection<User>,
+}
+
 fn app(client: Client) -> Router {
-    let users: Collection<User> = client.database("workingtitle").collection("users");
+    let app_state = Arc::new(AppState {
+        users: client.database("workingtitle").collection("users"),
+    });
 
     // merge routes from other modules with .merge()
+    // pass AppState to other routers with Arc::clone()
     Router::new()
-        .with_state(users)
+        .with_state(Arc::clone(&app_state))
         .route("/", get(index))
-        .merge(user::users_router())
+        .merge(user::users_router(Arc::clone(&app_state)))
         .layer(TraceLayer::new_for_http())
 }
 

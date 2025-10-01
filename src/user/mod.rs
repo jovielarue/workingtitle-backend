@@ -1,11 +1,14 @@
-use crate::api::types::{ApiError, ApiResponse};
+use std::sync::Arc;
+
 use axum::{
     Json, Router,
     extract::{Path, State},
+    http::StatusCode,
     routing::{delete, get, patch, post},
 };
-use mongodb::Collection;
 use serde::{Deserialize, Serialize};
+
+use crate::AppState;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct User {
@@ -16,14 +19,14 @@ pub struct User {
 }
 
 async fn create_user(
-    State(db): State<Collection<User>>,
+    State(app_state): State<Arc<AppState>>,
     Json(input): Json<User>,
-) -> Result<ApiResponse, ApiError> {
-    let result = db.insert_one(input).await;
+) -> Result<StatusCode, StatusCode> {
+    let result = app_state.users.insert_one(input).await;
 
     match result {
-        Ok(_) => Ok(ApiResponse::Created),
-        Err(_) => Err(ApiError::InternalServerError),
+        Ok(_) => Ok(StatusCode::CREATED),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
@@ -34,10 +37,11 @@ async fn get_user(Path(id): Path<i32>) -> String {
 async fn delete_user() {}
 async fn update_user() {}
 
-pub fn users_router() -> Router {
+pub fn users_router(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/users/create", post(create_user))
         .route("/users/{id}", get(get_user))
         .route("/users/{id}", patch(update_user))
         .route("/users/{id}", delete(delete_user))
+        .with_state(app_state)
 }
