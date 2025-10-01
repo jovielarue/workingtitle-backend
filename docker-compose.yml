@@ -4,10 +4,13 @@ services:
     container_name: workingtitle-backend
     ports:
       - 5000:5000
+    networks:
+      - workingtitle
     depends_on:
       - mongodb
     # .env needs to include MONGODB_CONNECTION_STRING
     env_file: ".env"
+
   mongodb:
     image: mongodb/mongodb-community-server:latest
     container_name: mongodb
