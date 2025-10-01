@@ -16,7 +16,7 @@ services:
     container_name: mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - 27017:27017
     networks:
       - workingtitle
     volumes:

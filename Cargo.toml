@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 axum = { version = "0.8.6", features = ["tracing"] }
+dotenv = "0.15.0"
+mongodb = "3.3.0"
+serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.47.1", features = ["full"] }
 tower-http = { version = "0.6.6", features = ["trace"] }
 tracing = "0.1.41"
