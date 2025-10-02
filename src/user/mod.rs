@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Multipart, Path, State},
     routing::{delete, get, patch, post},
 };
 use mongodb::bson::{doc, oid::ObjectId, to_document};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     AppState,
@@ -24,49 +24,61 @@ pub struct User {
 
 async fn create_user(
     State(app_state): State<Arc<AppState>>,
-    Json(input): Json<User>,
-) -> Result<ApiResponse<User>, ApiError> {
-    let result = app_state.users.insert_one(input).await;
+    multipart: Multipart,
+) -> Result<ApiResponse<User>, ApiError<String>> {
+    let user: User = parse_form::<User>(multipart).await?;
 
-    match result {
-        Ok(_) => Ok(ApiResponse::Created),
-        Err(_) => Err(ApiError::InternalServerError),
+    app_state.users.insert_one(user).await.map_err(|e| {
+        let err = format!("Unable to create user: {:?}", e);
+        println!("{}", err);
+
+        ApiError::InternalServerError(vec![err.to_string()])
+    })?;
+
+    println!("Successfully created user.");
+    Ok(ApiResponse::Created)
+}
+
+async fn parse_form<T>(mut multipart: Multipart) -> Result<T, ApiError<String>>
+where
+    T: Serialize + DeserializeOwned,
+{
+    let mut form_data: HashMap<String, String> = HashMap::new();
+
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        let key = field.name().unwrap().to_string();
+        let value = String::from_utf8(field.bytes().await.unwrap().to_vec()).unwrap();
+
+        println!("KEY {} VALUE {:?}", key, value);
+        form_data.insert(key, value);
     }
+
+    let json_string = serde_json::to_string(&form_data).map_err(|e| {
+        let err = format!("Unable to create JSON string from form: {:?}", e);
+        println!("{}", err);
+
+        ApiError::InternalServerError(vec![err.to_string()])
+    })?;
+
+    let form_struct: T = serde_json::from_str(&json_string).map_err(|e| {
+        let err = format!("Unable to create struct from JSON string: {:?}", e);
+        println!("{}", err);
+
+        ApiError::InternalServerError(vec![err.to_string()])
+    })?;
+
+    Ok(form_struct)
 }
 
 async fn get_user(
     State(app_state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> Result<ApiResponse<User>, ApiError> {
-    match ObjectId::parse_str(id) {
-        Ok(oid) => match app_state.users.find_one(doc! {"_id": oid}).await {
-            Ok(Some(u)) => {
-                println!("User found:\n{:?}", u);
-                Ok(ApiResponse::JsonData::<User>(vec![u as User]))
-            }
-            Ok(None) => {
-                println!("User not found.");
-                Err(ApiError::NotFound)
-            }
-            Err(e) => {
-                println!("Database error: {:?}", e);
-                Err(ApiError::InternalServerError)
-            }
-        },
-        Err(e) => {
-            println!("Error parsing object id from path: {:?}", e);
-            Err(ApiError::InternalServerError)
-        }
-    }
-}
-
-async fn delete_user(
-    State(app_state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-) -> Result<ApiResponse<User>, ApiError> {
+) -> Result<ApiResponse<User>, ApiError<String>> {
     let oid = ObjectId::parse_str(id).map_err(|e| {
-        println!("Error parsing object id from request path: {:?}", e);
-        ApiError::InternalServerError
+        let err = format!("Error parsing object id from request path: {:?}", e);
+        println!("{}", err);
+
+        ApiError::InternalServerError(vec![err.to_string()])
     })?;
 
     let user = app_state
@@ -74,8 +86,39 @@ async fn delete_user(
         .find_one(doc! {"_id": oid})
         .await
         .map_err(|e| {
-            println!("Database error: {:?}", e);
-            ApiError::InternalServerError
+            let err = format!("Database error: {:?}", e);
+            println!("{}", err);
+
+            ApiError::InternalServerError(vec![err.to_string()])
+        })?
+        .ok_or_else(|| {
+            println!("A user with object id of {} was not found.", oid);
+            ApiError::NotFound
+        })?;
+
+    Ok(ApiResponse::JsonData(vec![user]))
+}
+
+async fn delete_user(
+    State(app_state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<ApiResponse<User>, ApiError<String>> {
+    let oid = ObjectId::parse_str(id).map_err(|e| {
+        let err = format!("Error parsing object id from request path: {:?}", e);
+        println!("{}", err);
+
+        ApiError::InternalServerError(vec![err.to_string()])
+    })?;
+
+    let user = app_state
+        .users
+        .find_one(doc! {"_id": oid})
+        .await
+        .map_err(|e| {
+            let err = format!("Database error: {:?}", e);
+            println!("{}", err);
+
+            ApiError::InternalServerError(vec![err.to_string()])
         })?
         .ok_or_else(|| {
             println!("A user with object id of {} was not found.", oid);
@@ -87,8 +130,10 @@ async fn delete_user(
     // must convert User type to mongo document for deletion
     let user_doc = to_document(&user).unwrap();
     app_state.users.delete_one(user_doc).await.map_err(|e| {
-        println!("Error during user deletion: {:?}", e);
-        ApiError::InternalServerError
+        let err = format!("Error during user deletion: {:?}", e);
+        println!("{}", err);
+
+        ApiError::InternalServerError(vec![err.to_string()])
     })?;
 
     Ok(ApiResponse::Deleted)

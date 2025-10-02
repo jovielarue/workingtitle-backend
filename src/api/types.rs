@@ -15,11 +15,11 @@ where
     JsonData(Vec<T>),
 }
 
-pub enum ApiError {
+pub enum ApiError<T> {
     BadRequest,
     NotFound,
     Unauthorized,
-    InternalServerError,
+    InternalServerError(Vec<T>),
 }
 
 impl<T> IntoResponse for ApiResponse<T>
@@ -36,13 +36,18 @@ where
     }
 }
 
-impl IntoResponse for ApiError {
+impl<T> IntoResponse for ApiError<T>
+where
+    T: Serialize,
+{
     fn into_response(self) -> Response {
         match self {
             Self::BadRequest => (StatusCode::BAD_REQUEST).into_response(),
             Self::NotFound => (StatusCode::NOT_FOUND).into_response(),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED).into_response(),
-            Self::InternalServerError => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
+            Self::InternalServerError(data) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(data)).into_response()
+            }
         }
     }
 }
