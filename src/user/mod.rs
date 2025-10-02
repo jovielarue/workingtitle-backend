@@ -64,39 +64,34 @@ async fn delete_user(
     State(app_state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<ApiResponse<User>, ApiError> {
-    match ObjectId::parse_str(id) {
-        Ok(oid) => {
-            match app_state.users.find_one(doc! {"_id": oid}).await {
-                Ok(Some(u)) => {
-                    println!("User found:\n{:?}\nDeleting now...", u);
+    let oid = ObjectId::parse_str(id).map_err(|e| {
+        println!("Error parsing object id from request path: {:?}", e);
+        ApiError::InternalServerError
+    })?;
 
-                    // must convert User type to mongo document for deletion
-                    let user_doc = to_document(&u).unwrap();
-                    let delete_result = app_state.users.delete_one(user_doc).await;
+    let user = app_state
+        .users
+        .find_one(doc! {"_id": oid})
+        .await
+        .map_err(|e| {
+            println!("Database error: {:?}", e);
+            ApiError::InternalServerError
+        })?
+        .ok_or_else(|| {
+            println!("A user with object id of {} was not found.", oid);
+            ApiError::NotFound
+        })?;
 
-                    match delete_result {
-                        Ok(_) => Ok(ApiResponse::Deleted),
-                        Err(e) => {
-                            println!("Error during user deletion: {:?}", e);
-                            Err(ApiError::InternalServerError)
-                        }
-                    }
-                }
-                Ok(None) => {
-                    println!("User not found.");
-                    Err(ApiError::NotFound)
-                }
-                Err(e) => {
-                    println!("Database error: {:?}", e);
-                    Err(ApiError::InternalServerError)
-                }
-            }
-        }
-        Err(e) => {
-            println!("Error parsing object id from path: {:?}", e);
-            Err(ApiError::InternalServerError)
-        }
-    }
+    println!("User found:\n{:?}\nDeleting now...", user);
+
+    // must convert User type to mongo document for deletion
+    let user_doc = to_document(&user).unwrap();
+    app_state.users.delete_one(user_doc).await.map_err(|e| {
+        println!("Error during user deletion: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    Ok(ApiResponse::Deleted)
 }
 
 async fn update_user() {}
