@@ -5,48 +5,44 @@ use axum::{
 };
 use serde::Serialize;
 
-#[derive(Serialize)]
-struct Message {
-    message: String,
-}
-
-pub enum ApiResponse {
+pub enum ApiResponse<T>
+where
+    T: Serialize,
+{
     OK,
     Created,
-    JsonData(Vec<Message>),
+    Deleted,
+    JsonData(Vec<T>),
 }
 
 pub enum ApiError {
     BadRequest,
-    Forbidden,
+    NotFound,
     Unauthorized,
     InternalServerError,
 }
 
-impl IntoResponse for ApiError {
-    fn into_response(self) -> Response {
-        match self {
-            Self::BadRequest => (StatusCode::OK).into_response(),
-            Self::Forbidden => (StatusCode::CREATED).into_response(),
-            Self::Unauthorized => (StatusCode::UNAUTHORIZED).into_response(),
-            Self::InternalServerError => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
-        }
-    }
-}
-
-impl IntoResponse for ApiResponse {
+impl<T> IntoResponse for ApiResponse<T>
+where
+    T: Serialize,
+{
     fn into_response(self) -> Response {
         match self {
             Self::OK => (StatusCode::OK).into_response(),
             Self::Created => (StatusCode::CREATED).into_response(),
+            Self::Deleted => (StatusCode::OK).into_response(),
             Self::JsonData(data) => (StatusCode::OK, Json(data)).into_response(),
         }
     }
 }
 
-fn internal_error<E>(err: E) -> (StatusCode, String)
-where
-    E: std::error::Error,
-{
-    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        match self {
+            Self::BadRequest => (StatusCode::BAD_REQUEST).into_response(),
+            Self::NotFound => (StatusCode::NOT_FOUND).into_response(),
+            Self::Unauthorized => (StatusCode::UNAUTHORIZED).into_response(),
+            Self::InternalServerError => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
+        }
+    }
 }
