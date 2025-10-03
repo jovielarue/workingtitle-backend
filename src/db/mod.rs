@@ -1,5 +1,6 @@
 use dotenv::dotenv;
 use mongodb::{Client, bson::doc};
+pub mod crud;
 
 pub async fn db_connection() -> Client {
     // ensure you have the correct .env variable set up (MONGODB_CONNECTION_STRING)
