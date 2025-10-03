@@ -6,10 +6,11 @@ use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{db::db_connection, user::User};
+use crate::{db::db_connection, user::models::User};
 mod api;
 mod db;
 mod user;
+mod utility;
 
 #[tokio::main]
 async fn main() {
