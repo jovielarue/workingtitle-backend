@@ -1,8 +1,8 @@
 pub mod models;
-pub mod user_service;
 use crate::{
     AppState,
     api::types::{ApiError, ApiResponse},
+    db,
     user::models::{PartialUser, User},
     utility::parse_form,
 };
@@ -13,7 +13,7 @@ use axum::{
 };
 use std::sync::Arc;
 
-pub fn users_router(app_state: Arc<AppState>) -> Router {
+pub fn user_router(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/users", post(create_user))
         .route("/users/{id}", get(get_user))
@@ -28,21 +28,21 @@ async fn create_user(
 ) -> Result<ApiResponse<String>, ApiError<String>> {
     let user = parse_form::<User>(multipart).await?;
 
-    user_service::create(user, app_state.users.clone()).await
+    db::crud::create(user, app_state.users.clone()).await
 }
 
 async fn get_user(
     State(app_state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<ApiResponse<User>, ApiError<String>> {
-    user_service::read(id, app_state.users.clone()).await
+    db::crud::read(id, app_state.users.clone()).await
 }
 
 async fn delete_user(
     State(app_state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<ApiResponse<User>, ApiError<String>> {
-    user_service::delete(id, app_state.users.clone()).await
+    db::crud::delete(id, app_state.users.clone()).await
 }
 
 async fn update_user(
@@ -52,5 +52,5 @@ async fn update_user(
 ) -> Result<ApiResponse<User>, ApiError<String>> {
     let user = parse_form::<PartialUser>(multipart).await?;
 
-    user_service::update(user, id, app_state.users.clone()).await
+    db::crud::update(user, id, app_state.users.clone()).await
 }
