@@ -8,6 +8,7 @@ use crate::{
     user::models::{PartialUser, User},
 };
 
+/// Creates a user document in the database from a User struct.
 pub async fn create(
     user: User,
     collection: Collection<User>,
@@ -25,6 +26,7 @@ pub async fn create(
     ])))
 }
 
+/// Gets a specified user document by id from the database and returns a User struct.
 pub async fn read(
     id: String,
     collection: Collection<User>,
@@ -48,17 +50,15 @@ pub async fn read(
     Ok(ApiResponse::OK(Some(vec![user])))
 }
 
+/// Updates a user document in the database by id and returns the updated User struct.
 pub async fn update(
     user: PartialUser,
-    user_id: String,
+    id: String,
     collection: Collection<User>,
 ) -> Result<ApiResponse<User>, ApiError<String>> {
-    println!("{:?}", user);
     let user_doc = to_document(&user).unwrap();
-    println!("{:?}", user_doc);
     let updated_user = doc! { "$set": user_doc };
-    let oid = get_oid(user_id.clone())?;
-    println!("{:?}", oid);
+    let oid = get_oid(id.clone())?;
 
     collection
         .update_one(doc! {"_id": oid}, updated_user)
@@ -70,9 +70,10 @@ pub async fn update(
             ApiError::InternalServerError(Some(vec![err.to_string()]))
         })?;
 
-    read(user_id, collection).await
+    read(id, collection).await
 }
 
+// Deletes a user document in the database by id.
 pub async fn delete(
     id: String,
     collection: Collection<User>,
@@ -107,6 +108,7 @@ pub async fn delete(
     Ok(ApiResponse::Deleted(None))
 }
 
+// Parses a Mongodb ObjectID from a String
 fn get_oid(id: String) -> Result<ObjectId, ApiError<String>> {
     match ObjectId::parse_str(&id).ok() {
         Some(oid) => Ok(oid),
