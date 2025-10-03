@@ -3,7 +3,7 @@ use crate::{
     AppState,
     api::types::{ApiError, ApiResponse},
     db,
-    user::models::{PartialUser, User},
+    users::models::{PartialUser, User},
     utility::parse_form,
 };
 use axum::{

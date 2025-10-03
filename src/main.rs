@@ -6,11 +6,14 @@ use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{db::db_connection, events::models::Event, user::models::User};
+use crate::{
+    db::db_connection, events::models::Event, tickets::models::Ticket, users::models::User,
+};
 mod api;
 mod db;
 mod events;
-mod user;
+mod tickets;
+mod users;
 mod utility;
 
 #[tokio::main]
@@ -29,12 +32,14 @@ async fn main() {
 struct AppState {
     users: Collection<User>,
     events: Collection<Event>,
+    tickets: Collection<Ticket>,
 }
 
 fn app(client: Client) -> Router {
     let app_state = Arc::new(AppState {
         users: client.database("workingtitle").collection("users"),
         events: client.database("workingtitle").collection("events"),
+        tickets: client.database("workingtitle").collection("tickets"),
     });
 
     // merge routes from other modules with .merge()
@@ -42,8 +47,9 @@ fn app(client: Client) -> Router {
     Router::new()
         .with_state(Arc::clone(&app_state))
         .route("/", get(index))
-        .merge(user::user_router(Arc::clone(&app_state)))
+        .merge(users::user_router(Arc::clone(&app_state)))
         .merge(events::event_router(Arc::clone(&app_state)))
+        .merge(tickets::ticket_router(Arc::clone(&app_state)))
         .layer(TraceLayer::new_for_http())
 }
 
