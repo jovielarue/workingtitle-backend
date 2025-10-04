@@ -8,7 +8,7 @@ services:
       - workingtitle
     depends_on:
       - mongodb
-    # .env needs to include MONGODB_CONNECTION_STRING
+    # .env needs to include MONGODB_CONNECTION_STRING and JWT_SECRET
     env_file: ".env"
 
   mongodb:
