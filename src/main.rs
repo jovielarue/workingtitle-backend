@@ -1,15 +1,23 @@
 use std::sync::Arc;
 
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use mongodb::{Client, Collection};
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
-    db::db_connection, events::models::Event, tickets::models::Ticket, users::models::User,
+    auth::{authorize, protected_test},
+    db::db_connection,
+    events::models::Event,
+    tickets::models::Ticket,
+    users::models::User,
 };
 mod api;
+mod auth;
 mod db;
 mod events;
 mod tickets;
@@ -46,13 +54,10 @@ fn app(client: Client) -> Router {
     // pass AppState to other routers with Arc::clone()
     Router::new()
         .with_state(Arc::clone(&app_state))
-        .route("/", get(index))
+        .route("/authorize", post(authorize))
+        .route("/protected", get(protected_test))
         .merge(users::user_router(Arc::clone(&app_state)))
         .merge(events::event_router(Arc::clone(&app_state)))
         .merge(tickets::ticket_router(Arc::clone(&app_state)))
         .layer(TraceLayer::new_for_http())
-}
-
-async fn index() -> &'static str {
-    "hello world"
 }
