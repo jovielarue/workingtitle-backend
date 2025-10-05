@@ -1,14 +1,3 @@
-use std::sync::Arc;
-
-use axum::{
-    Router,
-    routing::{get, post},
-};
-use mongodb::{Client, Collection};
-use tokio::net::TcpListener;
-use tower_http::trace::TraceLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
 use crate::{
     auth::{authorize, protected_test},
     db::db_connection,
@@ -16,6 +5,18 @@ use crate::{
     tickets::models::Ticket,
     users::models::User,
 };
+use axum::{
+    Router,
+    routing::{get, post},
+};
+use mongodb::{Client, Collection};
+use std::sync::Arc;
+use tokio::net::TcpListener;
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod api;
 mod auth;
 mod db;
@@ -44,6 +45,8 @@ struct AppState {
 }
 
 fn app(client: Client) -> Router {
+    let cors_layer = CorsLayer::new().allow_origin(Any);
+
     let app_state = Arc::new(AppState {
         users: client.database("workingtitle").collection("users"),
         events: client.database("workingtitle").collection("events"),
@@ -60,4 +63,5 @@ fn app(client: Client) -> Router {
         .merge(events::event_router(Arc::clone(&app_state)))
         .merge(tickets::ticket_router(Arc::clone(&app_state)))
         .layer(TraceLayer::new_for_http())
+        .layer(cors_layer)
 }
